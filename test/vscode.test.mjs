@@ -1768,6 +1768,47 @@ test('restart releases a native binding no longer active in VS Code', async (t) 
   assert.deepEqual(observed.map(({ slot, state }) => ({ slot, state })), [{ slot: 0, state: 'idle' }]);
 });
 
+test('restart preserves pending native approvals when the session is not active in VS Code', async (t) => {
+  const files = fixture();
+  t.after(() => fs.rmSync(files.directory, { recursive: true, force: true }));
+  const cwd = path.join(files.directory, 'native-project');
+  fs.mkdirSync(cwd);
+  const { eventsPath, journalPath } = createNativeSession(files.nativeRoot, IDS[0], cwd);
+  const first = new VSCodeIntegration({ ...files, scanIntervalMs: 60_000 });
+  await first.start();
+  append(eventsPath, event('user.message'), event('assistant.turn_start', { turnId: 'turn-1' }));
+  append(journalPath, {
+    kind: 2,
+    k: ['requests'],
+    v: [{
+      requestId: 'native-request',
+      response: [{
+        kind: 'toolInvocationSerialized',
+        toolCallId: 'post-tool',
+        isConfirmed: { type: 5 },
+        isComplete: true,
+      }],
+      modelState: { value: 4 },
+    }],
+  });
+  await first.scan();
+  assert.equal(first.slots[0].state, 'input');
+  first.stop();
+
+  const observed = [];
+  const second = new VSCodeIntegration({
+    ...files,
+    scanIntervalMs: 60_000,
+    nativeSessionActive: () => false,
+    onSlot: (slot) => observed.push(slot),
+  });
+  await second.start();
+  t.after(() => second.stop());
+  assert.equal(second.slots[0].state, 'input');
+  assert.equal(second.sessions.get(IDS[0]).boundSlot, 0);
+  assert.deepEqual(observed.map(({ slot, state }) => ({ slot, state })), [{ slot: 0, state: 'input' }]);
+});
+
 test('restart preserves slot order for completed native sessions no longer active in VS Code', async (t) => {
   const files = fixture();
   t.after(() => fs.rmSync(files.directory, { recursive: true, force: true }));

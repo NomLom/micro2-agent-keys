@@ -702,7 +702,8 @@ export class VSCodeIntegration {
               initial &&
               admitted.nativeActive === false &&
               slot.state !== 'done' &&
-              slot.state !== 'idle'
+              slot.state !== 'idle' &&
+              slot.state !== 'input'
             ) {
               session.boundSlot = null;
               this.slots[slot.slot] = null;

@@ -128,10 +128,12 @@ For the evidence and rationale behind this hybrid file-plus-hook model, see
    - recorded error -> `error`
    - completed run -> `done`
 
-  Restart intentionally re-announces a completed, still-bound session as green, even
-  if it was acknowledged white before the restart. Pressing the key acknowledges it
-  again. A session that is no longer discoverable is instead unbound and initialized
-  white, so no missing transcript can leave an unacknowledgeable green key.
+   Restart intentionally re-announces a completed, still-bound session as green, even
+   if it was acknowledged white before the restart. Pressing the key acknowledges it
+   again. A discoverable native session with journal-proven unresolved input remains
+   bound even when it is absent from VS Code's active-session mementos. A session that is
+   no longer discoverable is instead unbound and initialized white, so no missing
+   transcript can leave an unacknowledgeable green key.
 
 6. **Open the session**
 
