@@ -196,6 +196,46 @@ test('native chat projection recognizes terminal confirmation metadata while the
   assert.equal(snapshot.busy, true);
 });
 
+test('native chat projection recognizes serialized tool-result confirmations', () => {
+  const projection = new NativeChatProjection();
+  projection.apply({
+    kind: 0,
+    v: {
+      requests: [
+        {
+          requestId: 'active-request',
+          modelState: { value: 4 },
+          response: [
+            {
+              kind: 'toolInvocationSerialized',
+              toolCallId: 'post-tool-a',
+              isConfirmed: { type: 5 },
+              isComplete: true,
+            },
+            {
+              kind: 'toolInvocationSerialized',
+              toolCallId: 'post-tool-b',
+              isConfirmed: { type: 5 },
+              isComplete: true,
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  const snapshot = projection.snapshot();
+  assert.equal(snapshot.needsInput, true);
+  assert.deepEqual(
+    [...snapshot.blockers.values()].map(({ sourceId, kind }) => [sourceId, kind]),
+    [
+      ['post-tool-a', 'tool-result-confirmation'],
+      ['post-tool-b', 'tool-result-confirmation'],
+    ]
+  );
+  assert.deepEqual(snapshot.incompatibilities, []);
+});
+
 test('native chat projection covers every Phase 4 response lifecycle', () => {
   const cases = [
     {

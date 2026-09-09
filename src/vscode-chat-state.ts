@@ -501,6 +501,12 @@ function diagnosticToken(value: unknown): string {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(token) ? token : 'invalid';
 }
 
+function serializedConfirmationType(part: NativeResponsePart): unknown {
+  return part.isConfirmed && typeof part.isConfirmed === 'object'
+    ? (part.isConfirmed as { type?: unknown }).type
+    : undefined;
+}
+
 function blockerForPart(
   requestId: string,
   part: NativeResponsePart,
@@ -510,6 +516,7 @@ function blockerForPart(
   const partKind = typeof part.kind === 'string' ? part.kind : 'unknown';
   const toolCallId = typeof part.toolCallId === 'string' ? part.toolCallId : null;
   const stateType = (part.state as { type?: unknown } | null)?.type;
+  const confirmationType = serializedConfirmationType(part);
   let kind: HumanInputBlockerKind | null = null;
   let sourceId = typeof part.resolveId === 'string'
     ? part.resolveId
@@ -520,7 +527,7 @@ function blockerForPart(
   if (toolCallId) {
     sourceId = toolCallId;
     if (stateType === 1) kind = 'tool-confirmation';
-    else if (stateType === 3) kind = 'tool-result-confirmation';
+    else if (stateType === 3 || confirmationType === 5) kind = 'tool-result-confirmation';
     else if (stateType === 6) kind = 'tool-authentication';
     else if (
       part.isConfirmed == null &&
@@ -560,6 +567,7 @@ function isResolvedHumanInputPart(part: NativeResponsePart): boolean {
   const stateValue = state && typeof state === 'object' ? state.value : state;
   if (typeof part.toolCallId === 'string') {
     return ![1, 3, 6].includes(stateType as number) &&
+      serializedConfirmationType(part) !== 5 &&
       (stateType !== undefined || part.isConfirmed != null || part.isComplete === true);
   }
   if (['confirmation', 'questionCarousel', 'planReview'].includes(partKind)) return part.isUsed === true;

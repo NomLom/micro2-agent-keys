@@ -156,11 +156,12 @@ The effective telemetry model used by this project is:
   `PostToolUse` or `PermissionDenied` clears input state as a fallback without forwarding
   tool input. The hook ID's `__vscode-<number>` suffix is removed to correlate it with the
   transcript tool-call ID, and transcript completion remains a final fallback;
-- the persisted journal provides the approval-response boundary. A waiting record has
-  `isConfirmed: null`, `isComplete: true`, and no `terminalCommandState`; after the user
-  responds, `isConfirmed` is populated and terminal calls also gain a command state.
-  Process creation and `PreToolUse` are not response signals because both may occur before
-  the user accepts;
+- the persisted journal provides the approval-response boundary. A waiting pre-execution
+  record has `isConfirmed: null`, `isComplete: true`, and no `terminalCommandState`;
+  a waiting post-execution result approval has `isConfirmed: { type: 5 }`. Other populated
+  confirmation values are resolved, and terminal calls also gain a command state after the
+  user responds. Process creation and `PreToolUse` are not response signals because both may
+  occur before the user accepts;
 - journal records for external reads omit access flags, so records whose tool-call IDs are
   already pending from the transcript are also interpreted. An unconfirmed record opens
   the blocker; an already confirmed record remains running. Each confirmation clears only
