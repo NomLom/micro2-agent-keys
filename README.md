@@ -1,5 +1,9 @@
 # AgentKeys
 
+> **Windows support is in progress.** This branch's setup instructions are for macOS.
+> See the [draft Windows update](https://github.com/NomLom/micro2-agent-keys/pull/1)
+> for experimental Windows instructions and current verification limits.
+
 Turn a [Work Louder Creator Micro 2](https://worklouder.cc/creator-micro-2) or a
 [Codex Micro](https://worklouder.cc/codex-micro) into an at-a-glance
 control surface for up to 20 coding-agent sessions. AgentKeys connects VS Code, the command line,
