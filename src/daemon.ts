@@ -7,6 +7,8 @@ import { readConfiguredAgentSlots } from './keymap.js';
 import { LocalAgentHostStateSource } from './agent-host.js';
 import { createServer, HOST, PORT, type DaemonApi } from './daemon-http.js';
 import type { Slot } from './daemon-interfaces.js';
+import * as path from 'path';
+import { stateRoot } from './platform.js';
 
 const RECONNECT_MS = 3000;
 const RECONCILE_MS = 250;
@@ -14,8 +16,10 @@ const SHUTDOWN_TIMEOUT_MS = 4000;
 const BUILD_ID = fs.readFileSync(new URL('./build-id', import.meta.url), 'utf8').trim();
 
 // LaunchServices discards stdout, so the app-bundle launch needs a real file.
-if (process.env.AGENTKEYS_LOG) {
-  const stream = fs.createWriteStream(process.env.AGENTKEYS_LOG, { flags: 'a' });
+if (process.env.AGENTKEYS_LOG || process.platform === 'win32') {
+  const logPath = process.env.AGENTKEYS_LOG ?? path.join(stateRoot(), 'daemon.log');
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  const stream = fs.createWriteStream(logPath, { flags: 'a' });
   const write = (...args: unknown[]): void => {
     stream.write(args.map(String).join(' ') + '\n');
   };

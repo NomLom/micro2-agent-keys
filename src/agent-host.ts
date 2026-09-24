@@ -1,8 +1,8 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import WebSocket, { type RawData } from 'ws';
+import { vscodeUserDataRoot } from './platform.js';
 
 const ROOT_CHANNEL = 'ahp-root://';
 const DEFAULT_RETRY_MS = 2_000;
@@ -95,7 +95,8 @@ function parseEndpoint(value: unknown): LocalAgentHostEndpoint | null {
     typeof instanceId !== 'string' || !instanceId ||
     typeof protocolVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(protocolVersion) ||
     typeof connectionToken !== 'string' || !connectionToken ||
-    typeof socketPath !== 'string' || !path.isAbsolute(socketPath) || /[:?]/.test(socketPath)
+    typeof socketPath !== 'string' || !path.isAbsolute(socketPath) ||
+    (process.platform === 'win32' ? !socketPath.startsWith('\\\\.\\pipe\\') : /[:?]/.test(socketPath))
   ) {
     return null;
   }
@@ -417,9 +418,7 @@ export class LocalAgentHostStateSource implements AgentHostStateSource {
   private started = false;
 
   constructor(options: LocalAgentHostStateSourceOptions = {}) {
-    const userDataPath = options.userDataPath ??
-      process.env.AGENTKEYS_VSCODE_USER_DATA ??
-      path.join(os.homedir(), 'Library', 'Application Support', 'Code');
+    const userDataPath = options.userDataPath ?? vscodeUserDataRoot();
     this.registryPath = options.registryPath ?? path.join(userDataPath, 'agent-host', 'local-endpoint');
     this.retryMs = options.retryMs ?? DEFAULT_RETRY_MS;
     this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;

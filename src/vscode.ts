@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { appDataRoot, vscodeUserDataRoot } from './platform.js';
 import type { AgentHostStateSource } from './agent-host.js';
 import { INTEGRATION_SLOT_COUNT } from './states.js';
 import {
@@ -244,11 +245,11 @@ export class VSCodeIntegration {
     this.nativeRoot =
       options.nativeRoot ??
       process.env.AGENTKEYS_VSCODE_WORKSPACE_STORAGE ??
-      path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'workspaceStorage');
+      path.join(vscodeUserDataRoot(), 'User', 'workspaceStorage');
     this.statePath =
       options.statePath ??
       process.env.AGENTKEYS_VSCODE_STATE ??
-      path.join(os.homedir(), 'Library', 'Application Support', 'AgentKeys', 'vscode-sessions.json');
+      path.join(appDataRoot(), 'AgentKeys', 'vscode-sessions.json');
     this.agentHostSource = options.agentHostSource ?? null;
     this.onSlot = options.onSlot ?? (() => {});
     this.log = options.log ?? (() => {});

@@ -1,5 +1,22 @@
 # AgentKeys
 
+## Windows setup (experimental)
+
+This fork includes a Windows path for the Creator Micro 2 and VS Code Copilot Chat. It requires Node.js 22 or newer, VS Code with GitHub Copilot, and a Creator Micro 2 connected by USB. Hardware behavior has not yet been verified on a Windows machine with the keypad attached.
+
+From PowerShell in this repository:
+
+```powershell
+npm ci
+npm run build
+npm run install:windows
+npm run daemon
+```
+
+The installer adds Copilot hooks in your personal `.copilot/hooks` folder. Keep the `npm run daemon` terminal open while using AgentKeys. In another terminal, run `node dist/cli.js doctor vscode` to check VS Code session discovery. Configure the agent-key layer in Work Louder Input as described below; the daemon only drives key status and does not install a keymap.
+
+On Windows, VS Code's session data is read from `%APPDATA%\\Code`, AgentKeys state is saved under `%APPDATA%\\AgentKeys`, and the device lock is kept under `%LOCALAPPDATA%\\AgentKeys`. The existing macOS setup remains supported.
+
 Turn a [Work Louder Creator Micro 2](https://worklouder.cc/creator-micro-2) or a
 [Codex Micro](https://worklouder.cc/codex-micro) into an at-a-glance
 control surface for up to 20 coding-agent sessions. AgentKeys connects VS Code, the command line,

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "postbuild": "node scripts/write-build-id.mjs && chmod 755 dist/cli.js",
+    "postbuild": "node scripts/write-build-id.mjs",
     "check": "tsc --noEmit",
     "dev:capture:vscode-fixture": "node scripts/dev/capture-vscode-fixture.mjs",
     "dev:capture:vscode-ahp-lifecycle": "npm run build --silent && node scripts/dev/capture-agent-host-question.mjs",
@@ -22,6 +22,7 @@
     "preprobe": "npm run build",
     "probe": "node dist/research/probe.js",
     "setup": "npm install && scripts/make-app.sh && scripts/install-agent.sh",
+    "install:windows": "node scripts/install-windows.mjs",
     "test": "npm run build --silent && node --test test/*.test.mjs test/*.test.js"
   },
   "dependencies": {
@@ -29,10 +30,10 @@
     "ws": "^8.21.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.20.4",
     "@types/ws": "^8.18.1",
     "typescript": "^7.0.2"
   }

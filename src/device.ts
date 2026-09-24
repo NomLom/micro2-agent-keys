@@ -1,9 +1,9 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { execFileSync } from 'child_process';
 import * as HID from 'node-hid';
+import { stateRoot } from './platform.js';
 
 export const WL_VID = 0x303a;
 export const CM2_PID = 0x8298;
@@ -26,7 +26,7 @@ const INCOMPLETE_LOCK_STALE_MS = 30000;
 const MAX_RPC_ID = 999;
 
 const LOCK_PATH =
-  process.env.AGENTKEYS_DEVICE_LOCK ?? path.join(os.homedir(), '.local', 'state', 'agentkeys', 'device.lock');
+  process.env.AGENTKEYS_DEVICE_LOCK ?? path.join(stateRoot(), 'device.lock');
 
 export class DeviceError extends Error {}
 
