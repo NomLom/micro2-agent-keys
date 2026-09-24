@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { appDataRoot, vscodeUserDataRoot } from './platform.js';
 import type { AgentHostStateSource } from './agent-host.js';
@@ -10,6 +11,7 @@ import {
   NativeChatProjection,
   SOURCE_COPILOT_CLI,
   SOURCE_NATIVE,
+  SOURCE_STANDALONE_CLI,
   cloneRun,
   emptyCompatibility,
   emptyRun,
@@ -48,6 +50,26 @@ const CLIENT_NAME = 'vscode-agent-host';
 const MIN_SCAN_INTERVAL_MS = 100;
 const SCAN_INTERVAL_MS = 200;
 const SCHEMA_VERSION = 1;
+
+/** Start a separate console in the session's working directory. */
+export function launchCliSession(cwd: string, sessionId: string): Promise<void> {
+  if (!SESSION_ID.test(sessionId) || !path.isAbsolute(cwd)) {
+    return Promise.reject(new Error('invalid Copilot CLI session'));
+  }
+  if (process.platform !== 'win32') {
+    return Promise.reject(new Error('Copilot CLI session opening currently requires Windows'));
+  }
+  return new Promise((resolve, reject) => {
+    const child = spawn('cmd.exe', ['/d', '/k', 'copilot', `--resume=${sessionId}`], {
+      cwd, detached: true, stdio: 'ignore', windowsHide: false,
+    });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
+}
 
 interface StartupReplay {
   slot: VSCodeSlot;
@@ -190,6 +212,7 @@ export interface VSCodeIntegrationOptions {
   onSlot?: (slot: VSCodeSlot) => void | Promise<void>;
   log?: (...args: unknown[]) => void;
   launch?: (url: string) => Promise<void>;
+  launchCli?: (cwd: string, sessionId: string) => Promise<void>;
   nativeSessionActive?: (indexPath: string, sessionId: string) => boolean | null;
   scanIntervalMs?: number;
 }
@@ -228,6 +251,7 @@ export class VSCodeIntegration {
   onSlot: (slot: VSCodeSlot) => void | Promise<void>;
   log: (...args: unknown[]) => void;
   launch: (url: string) => Promise<void>;
+  launchCli: (cwd: string, sessionId: string) => Promise<void>;
   nativeSessionActive: (indexPath: string, sessionId: string) => boolean | null;
   scanIntervalMs: number;
   enabledSlots: Set<number>;
@@ -254,6 +278,7 @@ export class VSCodeIntegration {
     this.onSlot = options.onSlot ?? (() => {});
     this.log = options.log ?? (() => {});
     this.launch = options.launch ?? launchUrl;
+    this.launchCli = options.launchCli ?? launchCliSession;
     this.nativeSessionActive = options.nativeSessionActive ?? nativeSessionActive;
     const requestedScanInterval = options.scanIntervalMs ?? SCAN_INTERVAL_MS;
     this.scanIntervalMs = Number.isFinite(requestedScanInterval)
@@ -471,16 +496,17 @@ export class VSCodeIntegration {
     } catch {
       return null;
     }
-    if (metadata.clientName !== CLIENT_NAME || metadata.id !== id || !path.isAbsolute(metadata.cwd ?? '')) {
+    if ((metadata.clientName && metadata.clientName !== CLIENT_NAME) || metadata.id !== id || !path.isAbsolute(metadata.cwd ?? '')) {
       return null;
     }
+    const source = metadata.clientName === CLIENT_NAME ? SOURCE_COPILOT_CLI : SOURCE_STANDALONE_CLI;
     return {
       id,
       cwd: metadata.cwd as string,
       eventsPath,
       journalPath: null,
-      source: SOURCE_COPILOT_CLI,
-      resource: `${RESOURCE_SCHEME}:/${id}`,
+      source,
+      resource: source === SOURCE_COPILOT_CLI ? `${RESOURCE_SCHEME}:/${id}` : `copilot-cli:/${id}`,
     };
   }
 
@@ -1058,7 +1084,8 @@ export class VSCodeIntegration {
     session.lastEventAt = event.timestamp ?? new Date().toISOString();
     let allocated = false;
     if (transition.prompt && session.boundSlot === null) {
-      if (session.compatibility.supported && this.providerVerified()) {
+      if (session.compatibility.supported &&
+          (session.source === SOURCE_STANDALONE_CLI || this.providerVerified())) {
         allocated = this.allocate(session, session.lastEventAt) !== null;
       }
       else this.log(`Unsupported VS Code event producer for ${session.id.slice(0, 8)}`);
@@ -1098,7 +1125,7 @@ export class VSCodeIntegration {
       | undefined;
     if (!hook || !SESSION_ID.test(hook.sessionId ?? '')) return false;
     const session = this.sessions.get(hook.sessionId as string);
-    if (!session || session.source !== SOURCE_NATIVE || session.boundSlot === null) return false;
+    if (!session || (session.source !== SOURCE_NATIVE && session.source !== SOURCE_STANDALONE_CLI) || session.boundSlot === null) return false;
     const timestamp = typeof hook.timestamp === 'string' ? hook.timestamp : new Date().toISOString();
     if (
       hook.toolName === 'vscode_askQuestions' &&
@@ -1229,7 +1256,7 @@ export class VSCodeIntegration {
     if (!session?.compatibility.supported) {
       throw new Error(`VS Code session ${sessionId.slice(0, 8)} uses an unsupported event format`);
     }
-    if (!exactOpenCompatibility().available) {
+    if (session.source !== SOURCE_STANDALONE_CLI && !exactOpenCompatibility().available) {
       throw new Error('exact VS Code session opening is unavailable on this system');
     }
     if (!slot.cwd || !fs.existsSync(slot.cwd)) {
@@ -1240,8 +1267,11 @@ export class VSCodeIntegration {
       this.save();
       throw new Error(`project path does not exist: ${slot.cwd}`);
     }
-    const url = buildSessionUrl(slot.cwd, slot.sessionId, slot.resource);
-    await this.launch(url);
+    const url = session.source === SOURCE_STANDALONE_CLI
+      ? `copilot --resume=${sessionId}`
+      : buildSessionUrl(slot.cwd, slot.sessionId, slot.resource);
+    if (session.source === SOURCE_STANDALONE_CLI) await this.launchCli(slot.cwd, sessionId);
+    else await this.launch(url);
     const current = this.slots[index];
     if (current?.sessionId === sessionId) {
       if (current.state === 'error') {

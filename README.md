@@ -2,7 +2,7 @@
 
 ## Setup on Windows (experimental)
 
-This fork includes a Windows path for the Creator Micro 2 and VS Code Copilot Chat. It requires Node.js 22 or newer, VS Code with GitHub Copilot, and a Creator Micro 2 connected by USB. The Windows software builds and its focused tests pass, but the complete keyboard and Copilot workflow has not yet been verified on Windows hardware.
+This fork includes a Windows path for the Creator Micro 2, GitHub Copilot CLI, and Copilot Chat in VS Code. It requires Node.js 22 or newer and a Creator Micro 2 connected by USB. Install GitHub Copilot CLI and make `copilot` available on `PATH` for CLI sessions; install VS Code with GitHub Copilot for VS Code sessions. The Windows software builds and its focused tests pass, but the complete keyboard and Copilot workflow has not yet been verified on Windows hardware.
 
 From PowerShell in this repository:
 
@@ -23,13 +23,13 @@ node dist/cli.js doctor vscode
 node dist/cli.js vscode slots
 ```
 
-`status` should say `keyboard: connected`. After an eligible VS Code Copilot session begins work, `vscode slots` should show a bound session; its mapped key should reflect the session state. `doctor vscode` reports the paths and URL handler it detected. Its overall `ready` value can remain false until a compatible session lifecycle has been observed.
+`status` should say `keyboard: connected`. After a Copilot CLI or VS Code Copilot session begins work, `vscode slots` should show a bound session with `source: standalone-cli`, `copilot-cli` (VS Code Agent Host), or `native` (VS Code Chat). The mapped key reflects its state. Pressing a CLI session's key opens a new Windows console with `copilot --resume=<session-id>` in the original project directory. Pressing a VS Code session's key opens that chat in VS Code. `doctor vscode` reports the paths and URL handler it detected; its overall `ready` value still reflects the VS Code integration and can remain false when only CLI is installed.
 
-If the keyboard is disconnected, check its USB connection and inspect `%LOCALAPPDATA%\AgentKeys\daemon.log` with `node dist/cli.js log`. If VS Code discovery is unavailable, confirm VS Code and GitHub Copilot are installed, start a Copilot Chat session, and check the paths printed by `doctor vscode`. Exact chat opening also requires the `vscode://` URL handler to be registered. The daemon only reads VS Code session files and drives the agent keys; it cannot create Copilot sessions.
+If the keyboard is disconnected, check its USB connection and inspect `%LOCALAPPDATA%\AgentKeys\daemon.log` with `node dist/cli.js log`. If a CLI session does not appear, confirm `copilot` runs in a new PowerShell window and check `%USERPROFILE%\.copilot\session-state` (or `COPILOT_HOME\session-state`). If VS Code discovery is unavailable, confirm VS Code and GitHub Copilot are installed, start a Copilot Chat session, and check the paths printed by `doctor vscode`. Exact VS Code chat opening also requires the `vscode://` URL handler to be registered. The daemon reads Copilot session files and drives the agent keys; it cannot create Copilot sessions.
 
 To remove the hook integration, stop the daemon and delete `%USERPROFILE%\.copilot\hooks\agentkeys.json` (or the corresponding file under `COPILOT_HOME` if you set that variable). The installer does not edit other hook files.
 
-On Windows, VS Code's session data is read from `%APPDATA%\Code`, AgentKeys state is saved under `%APPDATA%\AgentKeys`, and the device lock is kept under `%LOCALAPPDATA%\AgentKeys`. The existing macOS setup remains supported.
+On Windows, CLI and VS Code Agent Host session data is read from `%USERPROFILE%\.copilot\session-state` (or `COPILOT_HOME\session-state`), native VS Code session data is read from `%APPDATA%\Code`, AgentKeys state is saved under `%APPDATA%\AgentKeys`, and the device lock is kept under `%LOCALAPPDATA%\AgentKeys`. The existing macOS setup remains supported.
 
 Turn a [Work Louder Creator Micro 2](https://worklouder.cc/creator-micro-2) or a
 [Codex Micro](https://worklouder.cc/codex-micro) into an at-a-glance

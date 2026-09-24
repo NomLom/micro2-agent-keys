@@ -1,8 +1,9 @@
 import * as path from 'path';
 
 export const SOURCE_COPILOT_CLI = 'copilot-cli' as const;
+export const SOURCE_STANDALONE_CLI = 'standalone-cli' as const;
 export const SOURCE_NATIVE = 'native' as const;
-export type SessionSource = typeof SOURCE_COPILOT_CLI | typeof SOURCE_NATIVE;
+export type SessionSource = typeof SOURCE_COPILOT_CLI | typeof SOURCE_STANDALONE_CLI | typeof SOURCE_NATIVE;
 const SUPPORTED_PRODUCER = 'copilot-agent';
 const SUPPORTED_EVENT_VERSION = 1;
 
@@ -178,7 +179,8 @@ export function updateCompatibility(
   }
   if (
     (event?.type === 'hook.end' && event.data?.hookType === 'sessionEnd') ||
-    (source === SOURCE_NATIVE && event?.type === 'request.completed')
+    (source === SOURCE_NATIVE && event?.type === 'request.completed') ||
+    (source === SOURCE_STANDALONE_CLI && event?.type === 'assistant.turn_end')
   ) {
     compatibility.sawSessionEnd = true;
   }
@@ -920,6 +922,12 @@ export function reduceEvent(
   } else if (event?.type === 'assistant.turn_end') {
     const id = eventKey(data, 'turnId', 'interactionId');
     if (id) run.turns.delete(id);
+    if (source === SOURCE_STANDALONE_CLI && run.turns.size === 0 && run.requestId) {
+      reduceNormalizedEvent(run, { type: 'request.finished', requestId: run.requestId, outcome: 'complete' });
+    }
+  } else if (source === SOURCE_STANDALONE_CLI && event?.type === 'session.task_complete') {
+    const requestId = ensureRequest();
+    reduceNormalizedEvent(run, { type: 'request.finished', requestId, outcome: 'complete' });
   } else if (source === SOURCE_NATIVE && event?.type === 'assistant.message') {
     for (const request of data?.toolRequests ?? []) {
       if (request.toolCallId && (request.name ?? request.toolName) === 'run_in_terminal') {
