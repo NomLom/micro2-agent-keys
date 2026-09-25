@@ -60,7 +60,7 @@ export function launchCliSession(cwd: string, sessionId: string): Promise<void> 
     return Promise.reject(new Error('Copilot CLI session opening currently requires Windows'));
   }
   return new Promise((resolve, reject) => {
-    const child = spawn('cmd.exe', ['/d', '/k', 'copilot', `--resume=${sessionId}`], {
+    const child = spawn('cmd.exe', ['/d', '/k', 'gh', 'copilot', '--', `--resume=${sessionId}`], {
       cwd, detached: true, stdio: 'ignore', windowsHide: false,
     });
     child.once('error', reject);
@@ -1268,7 +1268,7 @@ export class VSCodeIntegration {
       throw new Error(`project path does not exist: ${slot.cwd}`);
     }
     const url = session.source === SOURCE_STANDALONE_CLI
-      ? `copilot --resume=${sessionId}`
+      ? `gh copilot -- --resume=${sessionId}`
       : buildSessionUrl(slot.cwd, slot.sessionId, slot.resource);
     if (session.source === SOURCE_STANDALONE_CLI) await this.launchCli(slot.cwd, sessionId);
     else await this.launch(url);

@@ -67,7 +67,7 @@ test('Copilot CLI sessions share slots and reopen through the CLI launcher', asy
     await integration.scan();
     assert.equal(integration.publicSlots()[0].state, 'done');
     const opened = await integration.open(0);
-    assert.equal(opened.url, `copilot --resume=${id}`);
+    assert.equal(opened.url, `gh copilot -- --resume=${id}`);
     assert.deepEqual(launches, [[dir, id]]);
     assert.equal(integration.publicSlots()[0].state, 'idle');
   } finally {
