@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { STATES, ALIASES, INTEGRATION_SLOT_COUNT, normalizeState } from './states.js';
+import { stateRoot } from './platform.js';
 
 const PORT = Number(process.env.AGENTKEYS_PORT ?? 8787);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -138,7 +138,11 @@ async function main(argv: string[]): Promise<void> {
 
     case 'log':
       await new Promise<void>((resolve, reject) => {
-        const tail = spawn('tail', ['-f', join(homedir(), '.local/state/agentkeys/daemon.log')], {
+        const logPath = process.env.AGENTKEYS_LOG ?? join(stateRoot(), 'daemon.log');
+        const tail = process.platform === 'win32'
+          ? spawn('powershell.exe', ['-NoProfile', '-Command',
+              'Get-Content -LiteralPath $args[0] -Wait -Tail 50', logPath], { stdio: 'inherit' })
+          : spawn('tail', ['-f', logPath], {
           stdio: 'inherit',
         });
         tail.once('error', reject);

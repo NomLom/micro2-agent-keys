@@ -1,8 +1,35 @@
 # AgentKeys
 
-> **Windows support is in progress.** This branch's setup instructions are for macOS.
-> See the [draft Windows update](https://github.com/NomLom/micro2-agent-keys/pull/1)
-> for experimental Windows instructions and current verification limits.
+## Setup on Windows (experimental)
+
+This fork includes a Windows path for the Creator Micro 2, GitHub Copilot CLI, and Copilot Chat in VS Code. It requires Node.js 22 or newer and a Creator Micro 2 connected by USB. Install GitHub CLI and use `gh copilot` for CLI sessions; install VS Code with GitHub Copilot for VS Code sessions. The Windows software builds and its focused tests pass, but the complete keyboard and Copilot workflow has not yet been verified on Windows hardware.
+
+From PowerShell in this repository:
+
+```powershell
+npm ci
+npm run build
+npm run install:windows
+npm run daemon
+```
+
+The installer writes a user-wide Copilot hook file at `%USERPROFILE%\.copilot\hooks\agentkeys.json`. It does not start a background service. Keep the `npm run daemon` terminal open while using AgentKeys. It also does not change the keyboard's keymap: configure an agent-key layer in Work Louder Input using [the keycode layout below](#the-agent-layer) before expecting session lights or key presses to work. Stop the daemon before changing the device keymap, then restart it so the mapped keys are read again.
+
+In a second PowerShell window, check the connection:
+
+```powershell
+node dist/cli.js status
+node dist/cli.js doctor vscode
+node dist/cli.js vscode slots
+```
+
+`status` should say `keyboard: connected`. After a Copilot CLI or VS Code Copilot session begins work, `vscode slots` should show a bound session with `source: standalone-cli`, `copilot-cli` (VS Code Agent Host), or `native` (VS Code Chat). The mapped key reflects its state. Pressing a CLI session's key opens a new Windows console with `gh copilot -- --resume=<session-id>` in the original project directory. Pressing a VS Code session's key opens that chat in VS Code. `doctor vscode` reports the paths and URL handler it detected; its overall `ready` value still reflects the VS Code integration and can remain false when only CLI is installed.
+
+If the keyboard is disconnected, check its USB connection and inspect `%LOCALAPPDATA%\AgentKeys\daemon.log` with `node dist/cli.js log`. If a CLI session does not appear, confirm `gh copilot` runs in a new PowerShell window and check `%USERPROFILE%\.copilot\session-state` (or `COPILOT_HOME\session-state`). If VS Code discovery is unavailable, confirm VS Code and GitHub Copilot are installed, start a Copilot Chat session, and check the paths printed by `doctor vscode`. Exact VS Code chat opening also requires the `vscode://` URL handler to be registered. The daemon reads Copilot session files and drives the agent keys; it cannot create Copilot sessions.
+
+To remove the hook integration, stop the daemon and delete `%USERPROFILE%\.copilot\hooks\agentkeys.json` (or the corresponding file under `COPILOT_HOME` if you set that variable). The installer does not edit other hook files.
+
+On Windows, CLI and VS Code Agent Host session data is read from `%USERPROFILE%\.copilot\session-state` (or `COPILOT_HOME\session-state`), native VS Code session data is read from `%APPDATA%\Code`, AgentKeys state is saved under `%APPDATA%\AgentKeys`, and the device lock is kept under `%LOCALAPPDATA%\AgentKeys`. The existing macOS setup remains supported.
 
 Turn a [Work Louder Creator Micro 2](https://worklouder.cc/creator-micro-2) or a
 [Codex Micro](https://worklouder.cc/codex-micro) into an at-a-glance
@@ -10,9 +37,10 @@ control surface for up to 20 coding-agent sessions. AgentKeys connects VS Code, 
 and a local HTTP API to physical keys, so each concurrent session has a dedicated, color-coded
 status indicator you can act on without hunting through editor tabs.
 
-No custom firmware. It coexists with Input.app at runtime and talks to the device over
-its existing USB HID interface, using the JSON-RPC messages the stock firmware already
-accepts. Keep Input.app running so its key macros continue to work.
+No custom firmware. AgentKeys talks to the device over its existing USB HID interface,
+using the JSON-RPC messages the stock firmware already accepts. On macOS, its daemon has
+been verified alongside Input.app, which can stay running to provide key macros. This
+coexistence has not yet been verified on Windows.
 
 | State   | Colour       | Meaning                        |
 | ------- | ------------ | ------------------------------ |
@@ -35,8 +63,9 @@ accepts. Keep Input.app running so its key macros continue to work.
 - **See what needs attention first.** Breathing blue keys show active work, amber keys show
   sessions blocked on you, green keys show unread completion, and red keys surface failures.
   Parallel agents become easy to scan from your desk instead of easy to lose in a crowded editor.
-- **Keep your current setup.** No custom firmware or keymap takeover is required. Input.app
-  keeps providing your normal macros, while AgentKeys only updates the colors of the agent keys.
+- **Keep your current setup.** No custom firmware or keymap takeover is required. On macOS,
+  Input.app keeps providing your normal macros while AgentKeys updates the agent-key colors.
+  Windows coexistence with Work Louder Input still needs hardware verification.
 - **Fit it into any workflow.** Let VS Code assign and update slots automatically, or drive the
   same clear states from scripts, the CLI, or the localhost HTTP API.
 
@@ -79,9 +108,9 @@ flowchart LR
     daemon <-->|USB HID JSON-RPC| keyboard
 ```
 
-The daemon owns this project's single HID connection and the macOS permission. Input.app
-continues to run alongside it; everything else in this project is an unprivileged HTTP
-client, so hooks, shell aliases and editor tasks need no special entitlement.
+The daemon owns this project's single HID connection and, on macOS, the Input Monitoring
+permission. On macOS, Input.app continues to run alongside it. The hooks and CLI talk to the
+daemon through its local HTTP API. Windows coexistence with Work Louder Input remains unverified.
 
 Lighting uses the vendor RPC method `v.oai.thstatus`, which takes a bare array of
 per-thread descriptors. Sending one entry updates one key and leaves the rest alone.
@@ -112,10 +141,12 @@ completion by returning it to white, while keeping the shortcut bound so you can
 conversation. Opening a red key returns it to white and releases the failed binding so the slot can
 be reused.
 
-`scripts/install-agent.sh` installs the daemon providing all the features: VS Code hook configuration, CLI and HTTP API. Use
+On macOS, `scripts/install-agent.sh` installs the daemon, hooks, and CLI. On Windows, use
+[the Windows setup](#setup-on-windows-experimental) and run the daemon in a terminal. Use
 `agentkeys vscode slots` to see current bindings, `agentkeys vscode open <slot>` to jump to one
-from the terminal, `agentkeys-reset-vscode-slots` to free every binding, and
-`agentkeys doctor vscode` to check the detected VS Code integration.
+from the terminal, and `agentkeys doctor vscode` to check VS Code integration. The
+`agentkeys-reset-vscode-slots` convenience command is installed on macOS; on Windows use
+`node dist/cli.js vscode reset`.
 
 ## The agent layer
 
@@ -185,7 +216,7 @@ keys still type normally — they are simply unlit. Verified by A/B on hardware
 the agent keycodes and fully dark with them, even with every agent colour switched off.
 
 
-## Setup
+## Setup on macOS
 
 ```sh
 npm install
@@ -217,6 +248,8 @@ daemon can connect to the keyboard. If keyboard access cannot be verified, insta
 fails, explains the reported device error, and opens the Input Monitoring settings pane.
 
 ## CLI Usage
+
+The macOS installer provides the `agentkeys` command shown below. On Windows, replace `agentkeys` with `node dist/cli.js` from this repository.
 
 ```sh
 agentkeys set 0 running "refactor auth"
@@ -271,7 +304,8 @@ if my-agent-command; then agentkeys set $SLOT done; else agentkeys set $SLOT err
 ## Environment variables
 
 - `AGENTKEYS_PORT` overrides the port for both daemon and CLI.
-- `AGENTKEYS_LOG` redirects daemon output to a file, needed when launched via
+- `AGENTKEYS_LOG` redirects daemon output to a file. On Windows, the daemon writes to
+  `%LOCALAPPDATA%\AgentKeys\daemon.log` by default; on macOS it is needed when launched via
   LaunchServices, which discards stdout.
 - `COPILOT_HOME` overrides the Copilot data directory used by the VS Code integration.
 - `AGENTKEYS_VSCODE_USER_DATA` overrides the VS Code user-data directory used to discover
@@ -291,8 +325,8 @@ agentkeys log
 - Native VS Code session completion may be delayed because AgentKeys relies on journal writes,
   which VS Code may defer. VS Code currently provides no live, authoritative completion
   notification for these sessions. The delay is generally below a few seconds, sometimes even ~ 15 s.
-- `~/.local/state/agentkeys/daemon.log` is not rotated automatically; log rotation is not yet
-  implemented.
+- The daemon log is not rotated automatically. Its default location is
+  `~/.local/state/agentkeys/daemon.log` on macOS and `%LOCALAPPDATA%\AgentKeys\daemon.log` on Windows.
 
 ## Notes
 
